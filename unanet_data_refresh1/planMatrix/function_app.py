@@ -102,3 +102,36 @@ def unanet_fetch_planned_time(req: func.HttpRequest) -> func.HttpResponse:
     except Exception as e:
         logging.error(f"Error processing request: {e}")
         return func.HttpResponse(f"Error processing request: {e}", status_code=500)
+
+@app.route(route="unanet-fetch-projects", auth_level=func.AuthLevel.ANONYMOUS)
+def unanet_fetch_projects(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info("Processing Unanet fetch projects request.")
+
+    try:
+        # Get the authentication token
+        token = get_unanet_token()
+
+        # Fetch project details for projects up to project ID 500
+        projects_data = []
+
+        for project_id in range(1, 501):  # Adjust range as needed
+            try:
+                # Fetch project details for each project
+                project = fetch_project_details(token, project_id)
+                if project:
+                    projects_data.append(project)
+            except Exception as e:
+                logging.warning(f"Failed to fetch project details for project ID {project_id}: {e}")
+                continue
+
+        # Transform and save project details to CSV
+        if projects_data:
+            projects_df = transform_data(projects_data)
+            upload_to_azure_blob(projects_df.to_csv(index=False, sep="|"), PROJECTS_BLOB_NAME)
+
+        logging.info("All project details fetched and uploaded successfully.")
+        return func.HttpResponse("Project details fetched and uploaded successfully.", status_code=200)
+
+    except Exception as e:
+        logging.error(f"Error processing request: {e}")
+        return func.HttpResponse(f"Error processing request: {e}", status_code=500)
