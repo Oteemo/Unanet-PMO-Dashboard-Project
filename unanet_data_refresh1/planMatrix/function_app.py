@@ -13,14 +13,17 @@ USERNAME = os.getenv("UNANET_USERNAME")
 if not USERNAME:
     logging.error("UNANET_USERNAME is not set. Please check environment variables.")
     raise ValueError("Missing environment variable: UNANET_USERNAME")
+
 PASSWORD = os.getenv("UNANET_PASSWORD")
 if not PASSWORD:
     logging.error("UNANET_PASSWORD is not set. Please check environment variables.")
     raise ValueError("Missing environment variable: UNANET_PASSWORD")
+
 AZURE_STORAGE_ACCOUNT_NAME = "appapiunanetfetch"
 CONTAINER_NAME = "scm-releases"
 PLANNED_TIME_BLOB_NAME = "planned_matrix.csv"
 PROJECTS_BLOB_NAME = "projects.csv"
+
 UNANET_LOGIN_URL = "https://oteemo.unanet.biz/platform/rest/login"
 PLANNING_TIME_URL_TEMPLATE = "https://oteemo.unanet.biz/platform/rest/planning/time/{id}"
 PROJECT_DETAILS_URL_TEMPLATE = "https://oteemo.unanet.biz/platform/rest/projects/{id}"
@@ -55,6 +58,38 @@ def fetch_planned_time(token, project_id):
     except requests.exceptions.RequestException as e:
         logging.warning(f"Error fetching planned time data for project ID {project_id}: {e}")
         return None
+
+# Fetch Project Details
+def fetch_project_details(token, project_id):
+    logging.info(f"Fetching project details for project ID: {project_id}")
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    url = PROJECT_DETAILS_URL_TEMPLATE.format(id=project_id)
+
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logging.warning(f"Error fetching project details for project ID {project_id}: {e}")
+        return None
+
+# Transform Project Data
+def transform_data(projects_data):
+    logging.info("Transforming project data into DataFrame.")
+    try:
+        # Convert JSON list into a pandas DataFrame
+        projects_df = pd.json_normalize(projects_data)
+
+        # Optional: Rename columns if necessary
+        # projects_df.rename(columns={"old_name": "new_name"}, inplace=True)
+
+        # Optional: Drop unnecessary columns
+        # projects_df.drop(columns=["unwanted_column"], inplace=True)
+
+        return projects_df
+    except Exception as e:
+        logging.error(f"Error transforming project data: {e}")
+        raise
 
 # Upload to Azure Blob Storage
 def upload_to_azure_blob(csv_data, blob_name):
